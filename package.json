@@ -31,6 +31,7 @@
   },
   "repository": "filecoin-project/slate",
   "dependencies": {
+    "@daemon-land/sdk": "0.0.1-alpha.27",
     "@emotion/babel-preset-css-prop": "11.2.0",
     "@emotion/react": "11.1.5",
     "@glif/filecoin-number": "^1.1.0-beta.17",

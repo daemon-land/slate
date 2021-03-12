@@ -190,7 +190,16 @@ export const updateViewer = async (data) => {
   });
 };
 
-export const signIn = async (data) => {
+// isDIDSignIn is true when signing in with a did
+// when isDIDSignIn is true, data _is_ the user (since we already have it)
+// this could be confusing....
+export const signIn = async (data, isDIDSignIn = false) => {
+  if (isDIDSignIn) {
+    return await returnJSON(`/api/did-sign-in`, {
+      ...DEFAULT_OPTIONS,
+      body: JSON.stringify({ data }),
+    });
+  }
   return await returnJSON(`/api/sign-in`, {
     ...DEFAULT_OPTIONS,
     body: JSON.stringify({ data }),

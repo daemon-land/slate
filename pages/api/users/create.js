@@ -32,13 +32,15 @@ export default async (req, res) => {
     return res.status(500).send({ decorator: "SERVER_INVALID_USERNAME", error: true });
   }
 
-  if (!Validations.password(req.body.data.password)) {
+  // only check password if DID is absent as well
+  if (!Validations.password(req.body.data.password) && Strings.isEmpty(req.body.data.data.did)) {
     return res.status(500).send({ decorator: "SERVER_INVALID_PASSWORD", error: true });
   }
 
   const rounds = Number(Environment.LOCAL_PASSWORD_ROUNDS);
   const salt = await BCrypt.genSalt(rounds);
-  const hash = await Utilities.encryptPassword(req.body.data.password, salt);
+  // here we just fake out any potential hackers by always pretending to have a password, even when we dont need one.
+  const hash = await Utilities.encryptPassword(req.body.data?.password || salt, salt);
 
   // TODO(jim):
   // Single Key Textile Auth.
@@ -71,6 +73,7 @@ export default async (req, res) => {
     salt,
     username: newUsername,
     data: {
+      did: req.body.data.data?.did || "",
       photo,
       body: "",
       settings_deals_auto_approve: false,
@@ -96,12 +99,13 @@ export default async (req, res) => {
       actorUserId: user.id,
       context: {
         username: user.username,
+        did: user.data.did,
       },
     },
   });
 
   return res.status(200).send({
     decorator: "SERVER_USER_CREATE",
-    user: { username: user.username, id: user.id },
+    user: { username: user.username, id: user.id, did: user.data.did },
   });
 };

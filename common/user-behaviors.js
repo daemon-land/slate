@@ -20,7 +20,10 @@ import { saveAs } from "file-saver";
 
 const cookies = new Cookies();
 
-export const authenticate = async (state) => {
+// isDIDSignIn is true when signing in with a did
+// when isDIDSignIn is true, data _is_ the user (since we already have it)
+// this could be confusing....
+export const authenticate = async (state, isDIDSignIn = false) => {
   // NOTE(jim): Kills existing session cookie if there is one.
   const jwt = cookies.get(Credentials.session.key);
 
@@ -28,7 +31,7 @@ export const authenticate = async (state) => {
     cookies.remove(Credentials.session.key);
   }
 
-  let response = await Actions.signIn(state);
+  let response = await Actions.signIn(state, isDIDSignIn);
   if (Events.hasError(response)) {
     return false;
   }
