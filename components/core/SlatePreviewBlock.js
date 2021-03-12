@@ -296,19 +296,14 @@ export class SlatePreviewBlock extends React.Component {
       <div css={STYLES_BLOCK}>
         <span css={STYLES_MOBILE_HIDDEN}>
           <div css={STYLES_TITLE_LINE}>
-            <div css={STYLES_TITLE} style={{ width: `85%` }}>
+            <div css={STYLES_TITLE} style={{ width: "85%" }}>
               {this.props.slate.data.name}
+              {this.props.isOwner && !this.props.isPublic && (
+                <span style={{ marginLeft: 12, position: "relative", top: 2 }}>
+                  <SVG.SecurityLock height="20px" style={{ color: Constants.system.darkGray }} />
+                </span>
+              )}
             </div>
-
-            {this.props.isOwner && (
-              <div style={{ color: Constants.system.darkGray, margin: `2px 0 0 0` }}>
-                {this.props.isPublic ? (
-                  <SVG.Globe height="20px" />
-                ) : (
-                  <SVG.SecurityLock height="20px" />
-                )}
-              </div>
-            )}
 
             {this.props.isOwner ? (
               <div
@@ -391,17 +386,19 @@ export class SlatePreviewBlock extends React.Component {
             <div css={STYLES_TITLE}>{this.props.slate.data.name}</div>
             {this.props.isOwner && (
               <div style={{ color: Constants.system.darkGray, margin: `2px 0 0 0` }}>
-                {this.props.isPublic ? (
-                  <SVG.Globe height="20px" />
-                ) : (
-                  <SVG.SecurityLock height="20px" />
+                {this.props.isPublic ? null : (
+                  <SVG.SecurityLock height="20px" style={{ color: Constants.system.darkGray }} />
                 )}
               </div>
             )}
           </div>
-          <div css={STYLES_BODY}>
-            {this.props.slate.data.body ? this.props.slate.data.body : null}
-          </div>
+          {this.props.slate.data.body ? (
+            <div css={STYLES_BODY} style={{ marginBottom: 16 }}>
+              {this.props.slate.data.body}
+            </div>
+          ) : (
+            <div style={{ height: 8 }} />
+          )}
           <div
             style={{
               width: "100%",

@@ -5,6 +5,7 @@ import * as Window from "~/common/window";
 import * as Constants from "~/common/constants";
 import * as SVG from "~/common/svg";
 import * as Strings from "~/common/strings";
+import * as UserBehaviors from "~/common/user-behaviors";
 import * as Events from "~/common/custom-events";
 
 import { LoaderSpinner } from "~/components/system/components/Loaders";
@@ -68,11 +69,13 @@ export default class SceneSlate extends React.Component {
   componentDidUpdate = async (prevProps) => {
     if (this.props.data?.id && prevProps.data?.id && this.props.data.id !== prevProps.data.id) {
       await this.fetchSlate();
+    } else if (this.props.page !== prevProps.page) {
+      this.openCarouselToItem();
     }
   };
 
   fetchSlate = async () => {
-    const { user: username, slate: slatename, cid } = this.props.page;
+    const { user: username, slate: slatename } = this.props.page;
 
     if (!this.props.data && (!username || !slatename)) {
       this.setState({ notFound: true });
@@ -137,18 +140,21 @@ export default class SceneSlate extends React.Component {
       );
     }
 
-    this.props.onUpdateData({ data: slate });
+    this.props.onUpdateData({ data: slate }, this.openCarouselToItem);
+  };
 
+  openCarouselToItem = () => {
+    let slate = this.props.data;
     let index = -1;
     let page = this.props.page;
-    if (page?.fileId || page?.cid || page?.index || !Strings.isEmpty(cid)) {
+    if (page?.fileId || page?.cid || page?.index || !Strings.isEmpty(page.cid)) {
       if (page?.index) {
         index = page.index;
       } else {
         for (let i = 0; i < slate.data.objects.length; i++) {
           let obj = slate.data.objects[i];
           if (
-            (obj.cid && (obj.cid === cid || obj.cid === page?.cid)) ||
+            (obj.cid && (obj.cid === page.cid || obj.cid === page?.cid)) ||
             (obj.id && obj.id === page?.fileId)
           ) {
             index = i;
@@ -208,17 +214,37 @@ class SlatePage extends React.Component {
   };
 
   componentDidMount() {
-    this._handleURLRedirect();
+    const {
+      page: { cid },
+    } = this.props;
+
+    /* NOTE(daniel): If user was redirected to this page, the cid of the slate object will exist in the page props.
+    We'll use the cid to open the global carousel */
+    if (Strings.isEmpty(cid)) {
+      return;
+    }
+
+    const index = this.props.current.data.objects.findIndex((object) => object.cid === cid);
+    if (index !== -1) {
+      Events.dispatchCustomEvent({
+        name: "slate-global-open-carousel",
+        detail: { index },
+      });
+    } else {
+      Events.dispatchCustomEvent({
+        name: "create-alert",
+        detail: {
+          alert: {
+            message:
+              "The requested file could not be found. It may have been removed from the slate or deleted",
+          },
+        },
+      });
+    }
   }
 
-  // NOTE(jim):
-  // The purpose of this is to update the Scene appropriately when
-  // it changes but isn't mounted.
   componentDidUpdate(prevProps) {
-    if (
-      prevProps.current.id !== this.props.current.id ||
-      this.props.viewer.subscriptions !== prevProps.viewer.subscriptions
-    ) {
+    if (this.props.viewer.subscriptions !== prevProps.viewer.subscriptions) {
       this.setState({
         isFollowing: !!this.props.viewer.subscriptions.filter((subscription) => {
           return subscription.target_slate_id === this.props.current.id;
@@ -306,31 +332,14 @@ class SlatePage extends React.Component {
     }, 1000);
   };
 
-  _handleURLRedirect = () => {
-    const {
-      page: { cid },
-    } = this.props;
-
-    /* NOTE(daniel): If user was redirected to this page, the cid of the slate object will exist in the page props. 
-    We'll use the cid to open the global carousel */
-    if (Strings.isEmpty(cid)) {
-      return null;
-    }
-
-    const index = this.getItemIndexByCID(cid);
-
-    Events.dispatchCustomEvent({
-      name: "slate-global-open-carousel",
-      detail: { index },
+  _handleDownloadFiles = () => {
+    const slateName = this.props.current.data.name;
+    const slateFiles = this.props.current.data.objects;
+    UserBehaviors.compressAndDownloadFiles({
+      files: slateFiles,
+      name: `${slateName}.zip`,
+      resourceURI: this.props.resources.download,
     });
-  };
-
-  getItemIndexByCID = (cid) => {
-    const { current } = this.props;
-    const objects = current.data.objects;
-    const index = objects.findIndex((object) => object.cid === cid);
-
-    return index;
   };
 
   render() {
@@ -340,25 +349,15 @@ class SlatePage extends React.Component {
     let layouts = this.props.current.data.layouts;
     const isPublic = data.public;
     const isOwner = this.props.current.data.ownerId === this.props.viewer.id;
-
-    let privacy = isOwner && (
-      <div>
-        {isPublic ? (
-          <div style={{ display: `flex` }}>
-            <SVG.Globe height="16px" style={{ margin: `4px 8px 0 0` }} />
-            <div>Public</div>
-          </div>
-        ) : (
-          <div style={{ display: `flex` }}>
-            <SVG.SecurityLock height="16px" style={{ margin: `4px 8px 0 0` }} />
-            <div>Private</div>
-          </div>
-        )}
-      </div>
-    );
+    const isSlateEmpty = this.props.current.data.objects.length === 0;
 
     let actions = isOwner ? (
       <span>
+        {!isSlateEmpty && (
+          <CircleButtonGray onClick={this._handleDownloadFiles} style={{ marginRight: 16 }}>
+            <SVG.Download height="16px" />
+          </CircleButtonGray>
+        )}
         <CircleButtonGray onClick={this._handleAdd} style={{ marginRight: 16 }}>
           <SVG.Plus height="16px" />
         </CircleButtonGray>
@@ -368,6 +367,11 @@ class SlatePage extends React.Component {
       </span>
     ) : (
       <div style={{ display: `flex` }}>
+        {!isSlateEmpty && (
+          <ButtonPrimary style={{ marginRight: "16px" }} onClick={this._handleDownloadFiles}>
+            Download
+          </ButtonPrimary>
+        )}
         <div onClick={this._handleFollow}>
           {this.state.isFollowing ? (
             <ButtonSecondary>Unfollow</ButtonSecondary>
@@ -398,13 +402,26 @@ class SlatePage extends React.Component {
                   {user.username}
                 </span>{" "}
                 / {data.name}
+                {isOwner && !isPublic && (
+                  <SVG.SecurityLock
+                    height="24px"
+                    style={{ marginLeft: 16, color: Constants.system.darkGray }}
+                  />
+                )}
               </span>
             ) : (
-              data.name
+              <span>
+                {data.name}
+                {isOwner && !isPublic && (
+                  <SVG.SecurityLock
+                    height="24px"
+                    style={{ marginLeft: 16, color: Constants.system.darkGray }}
+                  />
+                )}
+              </span>
             )
           }
           actions={<span css={STYLES_MOBILE_HIDDEN}>{actions}</span>}
-          privacy={privacy}
         >
           {body}
         </ScenePageHeader>
@@ -445,6 +462,7 @@ class SlatePage extends React.Component {
                   preview={preview}
                   onSavePreview={(preview) => this._handleSave(null, null, null, false, preview)}
                   items={objects}
+                  resources={this.props.resources}
                   onSelect={this._handleSelect}
                   defaultLayout={layouts && layouts.ver === "2.0" ? layouts.defaultLayout : true}
                   onAction={this.props.onAction}

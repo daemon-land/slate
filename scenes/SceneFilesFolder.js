@@ -19,12 +19,26 @@ import EmptyState from "~/components/core/EmptyState";
 
 const POLLING_INTERVAL = 10000;
 
-const STYLES_FILTERS_CONTAINER = css`
+const STYLES_CONTAINER_WRAPPER = css`
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  margin-bottom: 20px;
+`;
+
+const STYLES_CONTAINER = css`
   height: 60px;
   display: flex;
   flex-direction: row-reverse;
   justify-content: flex-start;
   align-items: center;
+`;
+
+const STYLES_COMMAND_WRAPPER = css`
+  padding: 4px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 `;
 
 //TODO(toast): Constants for SDS in future
@@ -68,6 +82,35 @@ const STYLES_CHECKBOX_LABEL = css`
   user-select: none;
 `;
 
+const STYLES_BUTTONS_ROW = css`
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+`;
+
+const STYLES_TOOLTIP_TEXT = css`
+  font-family: ${Constants.font.text};
+  font-size: 12px;
+`;
+
+const STYLES_COMMAND_TOOLTIP_ANCHOR = css`
+  border: 1px solid ${Constants.system.bgGray};
+  background-color: ${Constants.system.white};
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  align-items: flex-start;
+  justify-content: space-around;
+  box-shadow: 0px 8px 24px rgba(178, 178, 178, 0.2);
+  width: 275px;
+  position: absolute;
+  top: 4px;
+  right: 50px;
+  z-index: ${Constants.zindex.tooltip};
+  padding: 12px;
+`;
+
 export default class SceneFilesFolder extends React.Component {
   state = {
     view: 0,
@@ -82,6 +125,11 @@ export default class SceneFilesFolder extends React.Component {
     filtersActive: false,
     privacy: "ALL",
     filteredFiles: this.props.viewer?.library[0].children,
+    keyboardTooltip: false,
+  };
+
+  componentDidMount = () => {
+    this.openCarouselToItem();
   };
 
   componentDidUpdate = (prevProps, prevState) => {
@@ -89,6 +137,9 @@ export default class SceneFilesFolder extends React.Component {
       if (this.state.filtersActive) {
         this._filterFiles();
       }
+    }
+    if (prevProps.page !== this.props.page) {
+      this.openCarouselToItem();
     }
   };
 
@@ -155,7 +206,7 @@ export default class SceneFilesFolder extends React.Component {
     });
   };
 
-  componentDidMount = () => {
+  openCarouselToItem = () => {
     let index = -1;
     let page = this.props.page;
     if (page?.fileId || page?.cid || page?.index) {
@@ -235,7 +286,7 @@ export default class SceneFilesFolder extends React.Component {
           onUpdateViewer={this.props.onUpdateViewer}
           resources={this.props.resources}
           viewer={this.props.viewer}
-          objects={this.props.viewer?.library[0]?.children || []}
+          objects={files}
           onAction={this.props.onAction}
           mobile={this.props.mobile}
           isOwner={true}
@@ -257,121 +308,180 @@ export default class SceneFilesFolder extends React.Component {
             </ButtonPrimary>
           }
         />
-        <div css={STYLES_FILTERS_CONTAINER}>
-          <div style={{ position: "relative" }}>
-            <ButtonTertiary
-              style={{ marginBottom: 20, paddingLeft: 12, paddingRight: 12 }}
-              onClick={this._handleFilterTooltip}
+        <div css={STYLES_CONTAINER_WRAPPER}>
+          <div css={STYLES_CONTAINER}>
+            <div
+              css={STYLES_BUTTONS_ROW}
+              style={{ position: "relative", padding: 10, marginRight: 8 }}
+              onMouseLeave={() => this.setState({ keyboardTooltip: false })}
             >
-              <SVG.Filter
-                height="18px"
-                style={{
-                  color: this.state.filtersActive
-                    ? Constants.system.brand
-                    : Constants.system.textGray,
-                }}
-              />
-            </ButtonTertiary>
-            {this.state.filterTooltip ? (
-              <Boundary
-                captureResize={true}
-                captureScroll={false}
-                enabled
-                onOutsideRectEvent={() => {
-                  this.setState({ filterTooltip: false });
-                }}
+              <span
+                css={STYLES_COMMAND_WRAPPER}
+                onMouseEnter={() => this.setState({ keyboardTooltip: true })}
               >
-                <div css={STYLES_TOOLTIP_ANCHOR}>
-                  <div css={STYLES_FILETYPE_TOOLTIP}>
-                    <div style={{ width: 100 }}>
-                      <CheckBox
-                        name="image"
-                        value={this.state.fileTypes.image}
-                        onChange={() => this._handleFiletypeFilter("image")}
-                        boxStyle={{ height: 20, width: 20 }}
-                      >
-                        <span css={STYLES_CHECKBOX_LABEL}>Image</span>
-                      </CheckBox>
-                    </div>
-                    <div style={{ width: 100, marginTop: 12 }}>
-                      <CheckBox
-                        name="audio"
-                        value={this.state.fileTypes.audio}
-                        onChange={() => this._handleFiletypeFilter("audio")}
-                        boxStyle={{ height: 20, width: 20 }}
-                      >
-                        <span css={STYLES_CHECKBOX_LABEL}>Audio</span>
-                      </CheckBox>
-                    </div>
-                    <div style={{ width: 100, marginTop: 12 }}>
-                      <CheckBox
-                        name="video"
-                        value={this.state.fileTypes.video}
-                        onChange={() => this._handleFiletypeFilter("video")}
-                        boxStyle={{ height: 20, width: 20 }}
-                      >
-                        <span css={STYLES_CHECKBOX_LABEL}>Video</span>
-                      </CheckBox>
-                    </div>
-                    <div style={{ width: 100, marginTop: 12 }}>
-                      <CheckBox
-                        name="epub"
-                        value={this.state.fileTypes.epub}
-                        onChange={() => this._handleFiletypeFilter("epub")}
-                        boxStyle={{ height: 20, width: 20 }}
-                      >
-                        <span css={STYLES_CHECKBOX_LABEL}>Epub</span>
-                      </CheckBox>
-                    </div>
-                    <div style={{ width: 100, marginTop: 12 }}>
-                      <CheckBox
-                        name="pdf"
-                        value={this.state.fileTypes.pdf}
-                        onChange={() => this._handleFiletypeFilter("pdf")}
-                        boxStyle={{ height: 20, width: 20 }}
-                      >
-                        <span css={STYLES_CHECKBOX_LABEL}>Pdf</span>
-                      </CheckBox>
-                    </div>
+                <SVG.InfoCircle
+                  height="20px"
+                  style={{
+                    color: this.state.keyboardTooltip
+                      ? Constants.system.grayBlack
+                      : Constants.system.darkGray,
+                  }}
+                />
+              </span>
+              {this.state.keyboardTooltip ? (
+                <div css={STYLES_COMMAND_TOOLTIP_ANCHOR}>
+                  <div>
+                    <p
+                      css={STYLES_TOOLTIP_TEXT}
+                      style={{
+                        fontFamily: Constants.font.semiBold,
+                        fontSize: 14,
+                        paddingBottom: 4,
+                      }}
+                    >
+                      Keyboard shortcuts
+                    </p>
                   </div>
-                  <div css={STYLES_PRIVACY_TOOLTIP}>
-                    <div
-                      style={{
-                        color: this.state.privacy === "ALL" ? Constants.system.brand : null,
-                        cursor: "pointer",
-                        marginTop: 1,
-                      }}
-                      onClick={() => this._handlePrivacyFilter("ALL")}
-                    >
-                      All
-                    </div>
-                    <div
-                      style={{
-                        color:
-                          this.state.privacy === "PRIVATE" ? Constants.system.brand : "inherit",
-                        cursor: "pointer",
-                        marginTop: 17,
-                      }}
-                      onClick={() => this._handlePrivacyFilter("PRIVATE")}
-                    >
-                      Private
-                    </div>
-                    <div
-                      style={{
-                        color: this.state.privacy === "PUBLIC" ? Constants.system.brand : "inherit",
-                        cursor: "pointer",
-                        marginTop: 18,
-                      }}
-                      onClick={() => this._handlePrivacyFilter("PUBLIC")}
-                    >
-                      Public
-                    </div>
+                  <div>
+                    <p css={STYLES_TOOLTIP_TEXT}>shift + click</p>
+                    <p css={STYLES_TOOLTIP_TEXT} style={{ color: Constants.system.darkGray }}>
+                      select a range of items between two selections
+                    </p>
+                  </div>
+                  <div>
+                    <p css={STYLES_TOOLTIP_TEXT}>shift + drag</p>
+                    <p css={STYLES_TOOLTIP_TEXT} style={{ color: Constants.system.darkGray }}>
+                      select items by draging over them
+                    </p>
+                  </div>
+                  <div>
+                    <p css={STYLES_TOOLTIP_TEXT}>alt + drag</p>
+                    <p css={STYLES_TOOLTIP_TEXT} style={{ color: Constants.system.darkGray }}>
+                      deselect items by draging over them
+                    </p>
                   </div>
                 </div>
-              </Boundary>
-            ) : null}
+              ) : null}
+            </div>
+          </div>
+          <div css={STYLES_CONTAINER}>
+            <div style={{ position: "relative" }}>
+              <ButtonTertiary
+                style={{ paddingLeft: 12, paddingRight: 12 }}
+                onClick={this._handleFilterTooltip}
+              >
+                <SVG.Filter
+                  height="18px"
+                  style={{
+                    color: this.state.filtersActive
+                      ? Constants.system.brand
+                      : Constants.system.textGray,
+                  }}
+                />
+              </ButtonTertiary>
+              {this.state.filterTooltip ? (
+                <Boundary
+                  captureResize={true}
+                  captureScroll={false}
+                  enabled
+                  onOutsideRectEvent={() => {
+                    this.setState({ filterTooltip: false });
+                  }}
+                >
+                  <div css={STYLES_TOOLTIP_ANCHOR}>
+                    <div css={STYLES_FILETYPE_TOOLTIP}>
+                      <div style={{ width: 100 }}>
+                        <CheckBox
+                          name="image"
+                          value={this.state.fileTypes.image}
+                          onChange={() => this._handleFiletypeFilter("image")}
+                          boxStyle={{ height: 20, width: 20 }}
+                        >
+                          <span css={STYLES_CHECKBOX_LABEL}>Image</span>
+                        </CheckBox>
+                      </div>
+                      <div style={{ width: 100, marginTop: 12 }}>
+                        <CheckBox
+                          name="audio"
+                          value={this.state.fileTypes.audio}
+                          onChange={() => this._handleFiletypeFilter("audio")}
+                          boxStyle={{ height: 20, width: 20 }}
+                        >
+                          <span css={STYLES_CHECKBOX_LABEL}>Audio</span>
+                        </CheckBox>
+                      </div>
+                      <div style={{ width: 100, marginTop: 12 }}>
+                        <CheckBox
+                          name="video"
+                          value={this.state.fileTypes.video}
+                          onChange={() => this._handleFiletypeFilter("video")}
+                          boxStyle={{ height: 20, width: 20 }}
+                        >
+                          <span css={STYLES_CHECKBOX_LABEL}>Video</span>
+                        </CheckBox>
+                      </div>
+                      <div style={{ width: 100, marginTop: 12 }}>
+                        <CheckBox
+                          name="epub"
+                          value={this.state.fileTypes.epub}
+                          onChange={() => this._handleFiletypeFilter("epub")}
+                          boxStyle={{ height: 20, width: 20 }}
+                        >
+                          <span css={STYLES_CHECKBOX_LABEL}>Epub</span>
+                        </CheckBox>
+                      </div>
+                      <div style={{ width: 100, marginTop: 12 }}>
+                        <CheckBox
+                          name="pdf"
+                          value={this.state.fileTypes.pdf}
+                          onChange={() => this._handleFiletypeFilter("pdf")}
+                          boxStyle={{ height: 20, width: 20 }}
+                        >
+                          <span css={STYLES_CHECKBOX_LABEL}>Pdf</span>
+                        </CheckBox>
+                      </div>
+                    </div>
+                    <div css={STYLES_PRIVACY_TOOLTIP}>
+                      <div
+                        style={{
+                          color: this.state.privacy === "ALL" ? Constants.system.brand : null,
+                          cursor: "pointer",
+                          marginTop: 1,
+                        }}
+                        onClick={() => this._handlePrivacyFilter("ALL")}
+                      >
+                        All
+                      </div>
+                      <div
+                        style={{
+                          color:
+                            this.state.privacy === "PRIVATE" ? Constants.system.brand : "inherit",
+                          cursor: "pointer",
+                          marginTop: 17,
+                        }}
+                        onClick={() => this._handlePrivacyFilter("PRIVATE")}
+                      >
+                        Private
+                      </div>
+                      <div
+                        style={{
+                          color:
+                            this.state.privacy === "PUBLIC" ? Constants.system.brand : "inherit",
+                          cursor: "pointer",
+                          marginTop: 18,
+                        }}
+                        onClick={() => this._handlePrivacyFilter("PUBLIC")}
+                      >
+                        Public
+                      </div>
+                    </div>
+                  </div>
+                </Boundary>
+              ) : null}
+            </div>
           </div>
         </div>
+
         {files.length ? (
           <DataView
             onAction={this.props.onAction}
@@ -379,6 +489,7 @@ export default class SceneFilesFolder extends React.Component {
             items={files}
             onUpdateViewer={this.props.onUpdateViewer}
             view={this.state.view}
+            resources={this.props.resources}
           />
         ) : (
           <EmptyState>

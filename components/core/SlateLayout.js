@@ -135,7 +135,7 @@ const STYLES_TOOLTIP_ANCHOR = css`
   width: 275px;
   height: auto;
   position: absolute;
-  top: -11px;
+  top: 0px;
   left: 50px;
   z-index: ${Constants.zindex.tooltip};
 `;
@@ -300,7 +300,7 @@ const STYLES_ICON_ROW = css`
   display: flex;
   flex-direction: row;
   position: absolute;
-  left: calc(50% - 60px);
+  left: calc(50% - 40px);
 `;
 
 export class SlateLayout extends React.Component {
@@ -378,57 +378,6 @@ export class SlateLayout extends React.Component {
   };
 
   componentDidUpdate = async (prevProps) => {
-    // if (prevProps.slateId !== this.props.slateId) {
-    //   //NOTE(martina): to handle when you navigate between two slates, so it registers the change properly
-    //   await this.setState({ show: false });
-    //   let defaultLayout = this.props.layout ? this.props.defaultLayout : true;
-    //   let fileNames = this.props.fileNames;
-    //   let layout;
-    //   if (this.props.layout) {
-    //     layout = await this.repairLayout(this.props.items, {
-    //       defaultLayout,
-    //       fileNames,
-    //       layout: this.props.layout,
-    //     });
-    //     if (layout) {
-    //       this.props.onSaveLayout(
-    //         {
-    //           ver: "2.0",
-    //           fileNames,
-    //           defaultLayout,
-    //           layout,
-    //         },
-    //         true
-    //       );
-    //     } else {
-    //       layout = this.props.layout;
-    //     }
-    //   } else {
-    //     layout = generateLayout(this.props.items);
-    //     await this.setState({ layout, items: this.props.items });
-    //     layout = await this.calculateLayout(layout);
-    //     this.props.onSaveLayout(
-    //       {
-    //         ver: "2.0",
-    //         fileNames,
-    //         defaultLayout,
-    //         layout,
-    //       },
-    //       true
-    //     );
-    //   }
-    //   await this.setState({
-    //     items: this.props.items,
-    //     layout,
-    //     prevLayouts: [],
-    //     zIndexMax: layout && layout.length ? Math.max(...layout.map((pos) => pos.z)) + 1 : 1,
-    //     fileNames,
-    //     defaultLayout,
-    //     editing: false,
-    //     show: true,
-    //   });
-    //   this.calculateContainer();
-    // }
     if (prevProps.items.length !== this.props.items.length) {
       //NOTE(martina): to handle when items are added / deleted from the slate, and recalculate the layout
       //NOTE(martina): if there is a case that allows simultaneous add / delete (aka modify but same length), this will not work.
@@ -602,7 +551,9 @@ export class SlateLayout extends React.Component {
   };
 
   calculateHeights = async () => {
-    let results = await Promise.allSettled(this.state.items.map((item, i) => preload(item, i)));
+    let results = await Promise.allSettled(
+      this.state.items.map((item, i) => preload(item.coverImage ? item.coverImage : item, i))
+    );
     let heights = results.map((result) => {
       if (result.status === "fulfilled") {
         return result.value || 200;
@@ -722,6 +673,7 @@ export class SlateLayout extends React.Component {
     ) {
       e.preventDefault();
       e.stopPropagation();
+      console.log(this.props.isMac);
       this._handleUndo();
     } else if (
       (this.keysPressed["Control"] || this.keysPressed["Meta"]) &&
@@ -743,14 +695,6 @@ export class SlateLayout extends React.Component {
   _handleKeyUp = (e) => {
     this.keysPressed[e.key] = false;
     this.keysPressed = {};
-  };
-
-  _handleHelpKeybind = () => {
-    if (!this.state.keyboardTooltip) {
-      this.setState({ keyboardTooltip: true });
-    } else {
-      this.setState({ keyboardTooltip: false });
-    }
   };
 
   _handleUndo = () => {
@@ -832,6 +776,15 @@ export class SlateLayout extends React.Component {
       return;
     }
     this.setState({ layout });
+  };
+
+  _handleDownloadFiles = async () => {
+    const selectedFiles = this.props.items.filter((_, i) => this.state.checked[i]);
+    UserBehaviors.compressAndDownloadFiles({
+      files: selectedFiles,
+      resourceURI: this.props.resources.download,
+    });
+    this.setState({ checked: {} });
   };
 
   _handleMouseUp = (e) => {
@@ -1207,62 +1160,61 @@ export class SlateLayout extends React.Component {
                       Undo
                     </ButtonDisabled>
                   )}
-                  {!this.state.keyboardTooltip ? (
-                    <div onMouseEnter={() => this.setState({ keyboardTooltip: true })}>
-                      <SVG.MacCommand
-                        height="15px"
-                        style={{ marginLeft: "14px", color: Constants.system.darkGray }}
+
+                  <div css={STYLES_BUTTONS_ROW} style={{ position: "relative" }}>
+                    <span
+                      style={{
+                        padding: 10,
+                        display: "flex",
+                        alignItems: "center",
+                      }}
+                      onMouseLeave={() => this.setState({ keyboardTooltip: false })}
+                    >
+                      <SVG.InfoCircle
+                        height="20px"
+                        style={{
+                          color: this.state.keyboardTooltip
+                            ? Constants.system.grayBlack
+                            : Constants.system.darkGray,
+                        }}
                         onMouseEnter={() => this.setState({ keyboardTooltip: true })}
                       />
-                    </div>
-                  ) : (
-                    <div css={STYLES_BUTTONS_ROW} style={{ position: "relative" }}>
-                      <span
-                        style={{ marginRight: "14px" }}
-                        onMouseLeave={() => this.setState({ keyboardTooltip: false })}
-                      >
-                        <SVG.MacCommand
-                          height="15px"
-                          style={{
-                            marginLeft: "14px",
-                            marginRight: "7px",
-                            color: Constants.system.darkGray,
-                          }}
-                        />
-                      </span>
+                    </span>
+                    {this.state.keyboardTooltip ? (
                       <div css={STYLES_TOOLTIP_ANCHOR}>
                         <div>
                           <p
                             css={STYLES_TOOLTIP_TEXT}
                             style={{
                               fontFamily: Constants.font.semiBold,
-                              fontSize: "14px",
-                              paddingTop: "12px",
+                              fontSize: 14,
+                              paddingTop: 12,
+                              paddingBottom: 4,
                             }}
                           >
                             Keyboard shortcuts
                           </p>
                         </div>
                         <div>
-                          <p css={STYLES_TOOLTIP_TEXT}>shift + click and drag</p>
+                          <p css={STYLES_TOOLTIP_TEXT}>shift + drag</p>
                           <p css={STYLES_TOOLTIP_TEXT} style={{ color: Constants.system.darkGray }}>
                             keep x value or y value while moving file
                           </p>
                         </div>
                         <div>
-                          <p css={STYLES_TOOLTIP_TEXT}>shift + click and resize</p>
+                          <p css={STYLES_TOOLTIP_TEXT}>shift + resize</p>
                           <p css={STYLES_TOOLTIP_TEXT} style={{ color: Constants.system.darkGray }}>
                             keep aspect ratio while resizing
                           </p>
                         </div>
                         <div>
-                          <p css={STYLES_TOOLTIP_TEXT}>ctrl + click and drag</p>
+                          <p css={STYLES_TOOLTIP_TEXT}>ctrl + drag</p>
                           <p css={STYLES_TOOLTIP_TEXT} style={{ color: Constants.system.darkGray }}>
                             move without snapping to the dot grid
                           </p>
                         </div>
                         <div>
-                          <p css={STYLES_TOOLTIP_TEXT}>ctrl + click and resize</p>
+                          <p css={STYLES_TOOLTIP_TEXT}>ctrl + resize</p>
                           <p
                             css={STYLES_TOOLTIP_TEXT}
                             style={{ color: Constants.system.darkGray, paddingBottom: "12px" }}
@@ -1271,8 +1223,8 @@ export class SlateLayout extends React.Component {
                           </p>
                         </div>
                       </div>
-                    </div>
-                  )}
+                    ) : null}
+                  </div>
                 </div>
                 <div css={STYLES_BUTTONS_ROW} style={{ flexShrink: 0 }}>
                   <ButtonSecondary
@@ -1298,7 +1250,7 @@ export class SlateLayout extends React.Component {
                   onClick={this._toggleEditing}
                   style={{ cursor: "pointer", marginLeft: 16 }}
                 >
-                  Edit
+                  Edit layout
                 </ButtonSecondary>
               </div>
             )
@@ -1479,6 +1431,7 @@ export class SlateLayout extends React.Component {
                                 bottom: this.state.fileNames
                                   ? `calc(24px + ${TAG_HEIGHT}px)`
                                   : "24px",
+                                left: `calc(50% - 60px)`,
                               }}
                             >
                               <div
@@ -1611,7 +1564,7 @@ export class SlateLayout extends React.Component {
                                   : "24px",
                               }}
                             >
-                              <DynamicIcon
+                              {/* <DynamicIcon
                                 onClick={(e) => {
                                   this._handleCopy(e, this.state.items[i].url);
                                 }}
@@ -1638,7 +1591,7 @@ export class SlateLayout extends React.Component {
                                 }}
                               >
                                 <SVG.DeepLink height="16px" style={{ color: "#4b4a4d" }} />
-                              </DynamicIcon>
+                              </DynamicIcon> */}
                               <div
                                 css={STYLES_ICON_CIRCLE}
                                 onMouseDown={this._stopProp}
@@ -1779,10 +1732,13 @@ export class SlateLayout extends React.Component {
                       >
                         Add to slate
                       </ButtonPrimary>
-
-                      {/* <ButtonPrimary transparent onClick={this._handleDownload}>
-                    Download
-                  </ButtonPrimary> */}
+                      <ButtonWarning
+                        transparent
+                        style={{ marginLeft: 8, color: Constants.system.white }}
+                        onClick={this._handleDownloadFiles}
+                      >
+                        Download
+                      </ButtonWarning>
                       <ButtonWarning
                         transparent
                         style={{ marginLeft: 8, color: Constants.system.white }}
@@ -1818,9 +1774,6 @@ export class SlateLayout extends React.Component {
                     >
                       Save copy
                     </ButtonPrimary>
-                    {/* <ButtonPrimary transparent onClick={this._handleDownload}>
-                    Download
-                  </ButtonPrimary> */}
                     <div css={STYLES_ICON_BOX} onClick={() => this.setState({ checked: {} })}>
                       <SVG.Dismiss height="20px" style={{ color: Constants.system.darkGray }} />
                     </div>

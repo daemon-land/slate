@@ -6,6 +6,7 @@ import * as Strings from "~/common/strings";
 import * as Actions from "~/common/actions";
 import * as Validations from "~/common/validations";
 import * as Events from "~/common/custom-events";
+import * as UserBehaviors from "~/common/user-behaviors";
 
 import { ButtonSecondary } from "~/components/system/components/Buttons";
 import { css } from "@emotion/react";
@@ -182,31 +183,10 @@ export default class SlatePage extends React.Component {
       return null;
     }
 
-    let CIDMap = {};
-    Events.dispatchCustomEvent({
-      name: "slate-global-create-carousel",
-      detail: {
-        carouselType: "slate",
-        slides: this.props.slate.data.objects.map((each, index) => {
-          const url = each.url;
-          const cid = Strings.getCIDFromIPFS(url);
-          CIDMap[cid] = index;
-
-          return {
-            cid,
-            id: each.id,
-            data: each,
-            isOwner: false,
-            component: <SlateMediaObject key={each.id} useImageFallback data={each} />,
-          };
-        }),
-      },
-    });
-
     if (!Strings.isEmpty(this.props.cid)) {
-      const index = CIDMap[this.props.cid];
-
-      if (index || index === 0) {
+      let files = this.props.slate.data.objects || [];
+      let index = files.findIndex((object) => object.cid === this.props.cid);
+      if (index !== -1) {
         Events.dispatchCustomEvent({
           name: "slate-global-open-carousel",
           detail: { index },
@@ -227,6 +207,16 @@ export default class SlatePage extends React.Component {
       id: this.props.slate.id,
       layoutOnly: true,
       data: { layouts },
+    });
+  };
+
+  _handleDownloadFiles = () => {
+    const slateName = this.props.slate.data.name;
+    const slateFiles = this.props.slate.data.objects;
+    UserBehaviors.compressAndDownloadFiles({
+      files: slateFiles,
+      name: `${slateName}.zip`,
+      resourceURI: this.props.resources.download,
     });
   };
 
@@ -284,6 +274,7 @@ export default class SlatePage extends React.Component {
     }, {});
 
     const contributorsCount = Object.keys(counts).length;
+    const isSlateEmpty = objects.length === 0;
 
     return (
       <WebsitePrototypeWrapper title={title} description={body} url={url} image={image}>
@@ -318,6 +309,14 @@ export default class SlatePage extends React.Component {
               </div>
             </div>
             <div>
+              {!isSlateEmpty && (
+                <ButtonSecondary
+                  style={{ marginRight: "16px" }}
+                  onClick={this._handleDownloadFiles}
+                >
+                  Download
+                </ButtonSecondary>
+              )}
               <ButtonSecondary onClick={() => this.setState({ visible: true })}>
                 Follow
               </ButtonSecondary>

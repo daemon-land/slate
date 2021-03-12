@@ -61,6 +61,9 @@ const EXTERNAL_RESOURCES = {
   uploadZip: Strings.isEmpty(Environment.RESOURCE_URI_UPLOAD)
     ? null
     : Environment.RESOURCE_URI_STORAGE_UPLOAD,
+  download: Strings.isEmpty(Environment.RESOURCE_URI_UPLOAD)
+    ? null
+    : Environment.RESOURCE_URI_STORAGE_UPLOAD,
   pubsub: Strings.isEmpty(Environment.RESOURCE_URI_PUBSUB) ? null : Environment.RESOURCE_URI_PUBSUB,
   search: Strings.isEmpty(Environment.RESOURCE_URI_SEARCH) ? null : Environment.RESOURCE_URI_SEARCH,
 };
@@ -152,6 +155,7 @@ app.prepare().then(async () => {
 
   server.get("/_", async (req, res) => {
     let mobile = Window.isMobileBrowser(req.headers["user-agent"]);
+    let mac = Window.isMac(req.headers["user-agent"]);
 
     const isBucketsAvailable = await Utilities.checkTextile();
 
@@ -173,6 +177,7 @@ app.prepare().then(async () => {
       viewer,
       analytics,
       mobile,
+      mac,
       resources: EXTERNAL_RESOURCES,
     });
   });
@@ -241,6 +246,7 @@ app.prepare().then(async () => {
 
   server.get("/[$]/:id", async (req, res) => {
     let mobile = Window.isMobileBrowser(req.headers["user-agent"]);
+    let mac = Window.isMac(req.headers["user-agent"]);
 
     const slate = await Data.getSlateById({
       id: req.params.id,
@@ -282,6 +288,7 @@ app.prepare().then(async () => {
       creator: Serializers.user(creator),
       slate,
       mobile,
+      mac,
       resources: EXTERNAL_RESOURCES,
     });
   });
@@ -314,6 +321,7 @@ app.prepare().then(async () => {
 
   server.get("/:username", async (req, res) => {
     let mobile = Window.isMobileBrowser(req.headers["user-agent"]);
+    let mac = Window.isMac(req.headers["user-agent"]);
 
     // TODO(jim): Temporary workaround
     if (!Validations.userRoute(req.params.username)) {
@@ -381,13 +389,89 @@ app.prepare().then(async () => {
       viewer,
       creator,
       mobile,
+      mac,
       resources: EXTERNAL_RESOURCES,
       exploreSlates,
     });
   });
 
+  server.get("/:username/cid::cid", async (req, res) => {
+    let mobile = Window.isMobileBrowser(req.headers["user-agent"]);
+    let mac = Window.isMac(req.headers["user-agent"]);
+
+    // TODO(jim): Temporary workaround
+    if (!Validations.userRoute(req.params.username)) {
+      return handler(req, res, req.url);
+    }
+
+    const id = Utilities.getIdFromCookie(req);
+    const shouldViewerRedirect = await ViewerManager.shouldRedirect({ id });
+    if (shouldViewerRedirect) {
+      return res.redirect(
+        `/_${Strings.createQueryParams({
+          scene: "NAV_PROFILE",
+          user: req.params.username,
+          cid: req.params.cid,
+        })}`
+      );
+    }
+
+    let viewer = null;
+    if (id) {
+      viewer = await ViewerManager.getById({
+        id,
+      });
+    }
+
+    let creator = await Data.getUserByUsername({
+      username: req.params.username,
+    });
+
+    if (!creator) {
+      return res.redirect("/404");
+    }
+
+    if (creator.error) {
+      return res.redirect("/404");
+    }
+
+    let library = creator.data.library;
+
+    creator = Serializers.user(creator);
+
+    const slates = await Data.getSlatesByUserId({
+      userId: creator.id,
+      publicOnly: true,
+    });
+
+    let publicFileIds = [];
+    for (let slate of slates) {
+      publicFileIds.push(...slate.data.objects.map((obj) => obj.id));
+    }
+
+    creator.slates = slates;
+
+    if (library && library.length) {
+      library[0].children = library[0].children.filter((file) => {
+        return file.public || publicFileIds.includes(file.id);
+      });
+    }
+
+    creator.library = library;
+
+    return app.render(req, res, "/_/profile", {
+      viewer,
+      creator: Serializers.user(creator),
+      mobile,
+      mac,
+      resources: EXTERNAL_RESOURCES,
+      cid: req.params.cid,
+    });
+  });
+
   server.get("/:username/:slatename", async (req, res) => {
     let mobile = Window.isMobileBrowser(req.headers["user-agent"]);
+    let mac = Window.isMac(req.headers["user-agent"]);
 
     // TODO(jim): Temporary workaround
     if (!Validations.userRoute(req.params.username)) {
@@ -452,11 +536,15 @@ app.prepare().then(async () => {
       creator: Serializers.user(creator),
       slate,
       mobile,
+      mac,
       resources: EXTERNAL_RESOURCES,
     });
   });
 
   server.get("/:username/:slatename/cid::cid", async (req, res) => {
+    let mobile = Window.isMobileBrowser(req.headers["user-agent"]);
+    let mac = Window.isMac(req.headers["user-agent"]);
+
     // TODO(jim): Temporary workaround
     if (!Validations.userRoute(req.params.username)) {
       return handler(req, res, req.url);
@@ -518,6 +606,9 @@ app.prepare().then(async () => {
       viewer,
       creator: Serializers.user(creator),
       slate,
+      mobile,
+      mac,
+      resources: EXTERNAL_RESOURCES,
       cid: req.params.cid,
     });
   });

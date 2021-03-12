@@ -31,6 +31,16 @@ const returnJSON = async (route, options) => {
   return json;
 };
 
+export const createZipToken = async ({ files, resourceURI }) => {
+  return await returnJSON(`${resourceURI}/api/download/create-zip-token`, {
+    ...CORS_OPTIONS,
+    body: JSON.stringify({ files }),
+  });
+};
+
+export const downloadZip = ({ token, name, resourceURI }) =>
+  `${resourceURI}/api/download/download-by-token?downloadId=${token}&name=${name}`;
+
 export const health = async (data = {}) => {
   await Websockets.checkWebsocket();
   return await returnJSON(`/api/_`, {
@@ -151,7 +161,6 @@ export const search = async (data) => {
   if (Strings.isEmpty(data.resourceURI)) {
     return { decorator: "NO_RESOURCE_URI", data: { results: [] } };
   }
-
   return await returnJSON(`${data.resourceURI}/search`, {
     ...CORS_OPTIONS,
     body: JSON.stringify({ data }),
@@ -356,7 +365,7 @@ export const getActivity = async (data) => {
 };
 
 export const getZipFilePaths = async (data) => {
-  return await returnJSON(`api/zip/get-paths`, {
+  return await returnJSON(`/api/zip/get-paths`, {
     ...DEFAULT_OPTIONS,
     body: JSON.stringify({ data }),
   });

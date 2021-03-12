@@ -1,8 +1,10 @@
 import * as Data from "~/node_common/data";
 import * as Serializers from "~/node_common/serializers";
+import * as Utilities from "~/node_common/utilities";
 import * as Strings from "~/common/strings";
 
 export default async (req, res) => {
+  const id = Utilities.getIdFromCookie(req);
   let slate;
   if (req.body.data.id) {
     slate = await Data.getSlateById({ id: req.body.data.id });
@@ -20,7 +22,7 @@ export default async (req, res) => {
   }
   slate = Serializers.slate(slate);
 
-  if (!slate.data.public && slate.data.ownerId !== req.body.data.id) {
+  if (!slate.data.public && slate.data.ownerId !== id) {
     return res.status(403).send({
       decorator: "SLATE_PRIVATE_ACCESS_DENIED",
       error: true,
