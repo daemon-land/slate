@@ -1,4 +1,5 @@
 import * as React from "react";
+import { generateCalloutURL, ScopesV2 } from "@daemon-land/sdk";
 import * as Actions from "~/common/actions";
 import * as Window from "~/common/window";
 import * as SVG from "~/common/svg";
@@ -7,12 +8,16 @@ import * as Constants from "~/common/constants";
 import * as Validations from "~/common/validations";
 import * as Strings from "~/common/strings";
 import * as Events from "~/common/custom-events";
+// TODO: How should we pass client side (not so secret) env variables to client? This errs because dotenv ends up running client side
+// could make an API route?
+// import * as Environment from "~/node_common/environment";
+const SLATE_DID = "did:3:kjzl6cwe1jw147jaauez3vjbbff74vdgmfh49n8yekq02l78ht3im7134f44ofw";
 
 import { css } from "@emotion/react";
 import { Logo, Symbol } from "~/common/logo";
 
 const STYLES_POPOVER = css`
-  height: 424px;
+  height: 476px;
   padding: 32px 36px;
   border-radius: 4px;
   max-width: 376px;
@@ -182,6 +187,18 @@ export class SignIn extends React.Component {
     });
   };
 
+  _handleLoginWithDID = () => {
+    const calloutURL = generateCalloutURL({
+      requesterDID: SLATE_DID,
+      scope: ScopesV2.Read,
+      resource: "PROFILE",
+    });
+    this.setState({ scene: "SIGN_IN_WITH_DL" });
+    // UX TODO: should we `Router.push` here instead?
+    const loginCallout = window.open(calloutURL, "_blank");
+    loginCallout.focus();
+  };
+
   render() {
     if (this.state.scene === "WELCOME") {
       return (
@@ -212,6 +229,39 @@ export class SignIn extends React.Component {
             >
               Sign in
             </System.ButtonSecondary>
+
+            <System.ButtonSecondary
+              full
+              style={{ marginTop: 16 }}
+              onClick={this._handleLoginWithDID}
+              loading={this.state.loading}
+            >
+              Use a decentralized identity
+            </System.ButtonSecondary>
+          </div>
+          <div css={STYLES_LINKS}>
+            <a css={STYLES_LINK_ITEM} href="/terms" target="_blank">
+              ⭢ Terms of service
+            </a>
+
+            <a css={STYLES_LINK_ITEM} href="/guidelines" target="_blank">
+              ⭢ Community guidelines
+            </a>
+          </div>
+        </React.Fragment>
+      );
+    }
+
+    if (this.state.scene === "SIGN_IN_WITH_DL") {
+      return (
+        <React.Fragment>
+          <div css={STYLES_POPOVER} key={this.state.scene}>
+            <Logo height="36px" style={{ display: "block", margin: "56px auto 0px auto" }} />
+
+            <System.P style={{ margin: "56px 0", textAlign: "center" }}>
+              You are being redirected to the Glif personal data manager. Accept our request to
+              access your profile and get started using Slate!
+            </System.P>
           </div>
           <div css={STYLES_LINKS}>
             <a css={STYLES_LINK_ITEM} href="/terms" target="_blank">

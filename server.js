@@ -10,6 +10,8 @@ import * as Validations from "~/common/validations";
 import * as Window from "~/common/window";
 import * as Strings from "~/common/strings";
 
+import { Identity } from "@daemon-land/sdk";
+
 import ApiV1GetSlateObjects from "~/pages/api/v1/get-slate-objects";
 
 import limit from "express-rate-limit";
@@ -281,6 +283,32 @@ app.prepare().then(async () => {
       slate,
       mobile,
       resources: EXTERNAL_RESOURCES,
+    });
+  });
+
+  server.get("/callback", async (req, res) => {
+    let mobile = Window.isMobileBrowser(req.headers["user-agent"]);
+
+    // imposter?
+    if (!req.query.code) {
+      return res.redirect("/403");
+    }
+    // take the code in the URL bar, and exchange it for a session token
+    // we don't actually use the session token now, but we will use the user's DID
+    const { did, token } = await Identity.exchangeAuthCodeForJWT(
+      req.query.code,
+      Environment.SLATE_DID
+    );
+    // lookup the user by DID to see if it exists
+    // const user = await Data.getUserByDid({did});
+    const user = await Data.getUserByDid({ did });
+    return app.render(req, res, "/did-sign-in", {
+      // at the view layer,
+      // if user exists, feed them a cookie (auth them)
+      // if user dne, create them as normal, but no need for a pass
+      user,
+      mobile,
+      did,
     });
   });
 
